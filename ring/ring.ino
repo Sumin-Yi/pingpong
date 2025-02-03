@@ -60,7 +60,7 @@ void setup(void)
     while (1);
   }
 
-  BLE.setLocalName("YamuJins");
+  BLE.setLocalName("ring");
   BLE.setAdvertisedService(customService);
 
   // Add BLE characteristics
@@ -110,20 +110,6 @@ unsigned long last_rising_time = 0;  // 마지막 상승 시간
 #define TIMEOUT 500  // 상승 후 하강 대기 시간 (ms)
 
 bool detect_finger_tap() {
-  // // Read IMU data
-  // float aX = myIMU.readFloatAccelX();
-  // float aY = myIMU.readFloatAccelY();
-  // float aZ = myIMU.readFloatAccelZ();
-
-  // if (!is_rising && aX > THRESHOLDACCEL) {
-  //   is_rising = true;
-  //   last_rising_time = millis();
-  //   Serial.println("Rising detected (aX > THRESHOLDACCEL)");
-  //   return true;
-  // }
-
-
-  // return false;
             
   ax = myIMU.readFloatAccelX(); // Accel data
   ay = myIMU.readFloatAccelY();

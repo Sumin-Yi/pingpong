@@ -11,7 +11,7 @@ TX_CHARACTERISTIC_UUID = "2101"  # 서버에서 클라이언트로 전송 (FINGE
 
 # 시리얼 통신 설정
 # SERIAL_PORTS = ["COM8", "COM9"]
-SERIAL_PORTS = ["/dev/cu.usbserial-1410", "/dev/cu.usbserial-1420"]
+SERIAL_PORTS = ["/dev/cu.usbserial-110", "/dev/cu.usbserial-140"]
 BAUD_RATE = 115200
 
 # 전역 변수
