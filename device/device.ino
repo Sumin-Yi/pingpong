@@ -238,7 +238,7 @@ enum RingState {
   RING_CONFIRMED
 };
 
-#define TIME_WINDOW 7000
+#define TIME_WINDOW 1000
 #define WAITING_TIME 300
 
 DeviceState currentState = STATE_STABLE;
