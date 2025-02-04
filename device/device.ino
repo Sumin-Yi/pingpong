@@ -186,7 +186,6 @@ void matrix_spinner(bool state) {
   cond_aon(target, A5);
 }
 
-
 void matrix_off() {
   analogWrite(A0, 255);
   analogWrite(A1, 255);
@@ -248,6 +247,11 @@ unsigned long lastDetectedSentTime = 0;
 unsigned long prev_time = 0;
 unsigned long selc_time = 0;
 unsigned long det_time = 0;
+bool spinner_state = false;
+
+void toggle_spinner() {
+  spinner_state = !spinner_state;
+}
 
 void loop() {
   // Main code loop
@@ -295,15 +299,17 @@ void loop() {
         break;
 
       case STATE_CONFIRM:
-        select_led(GREEN); // 확인 상태일 때 GREEN LED
+        toggle_spinner();  // 이걸 어떤 이벤트에 연결하면 됨 (예: 버튼 입력)
+        matrix_spinner(spinner_state);  // 현재 상태에 따라 LED 회전
+        currentState = STATE_STABLE;
         break;
 
       case STATE_STABLE:
-        select_led(RED); // 안정 상태일 때 RED LED
+        select_led(GREEN); // 안정 상태일 때 RED LED
         break;
 
       case STATE_UNKNOWN:
-        select_led(RED); // UNKNOWN 상태일 때도 RED LED
+        select_led(RED); // UNKNOWN 상태일 때 RED LED
         break;
     }
   } else {
