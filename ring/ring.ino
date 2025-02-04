@@ -1,6 +1,5 @@
 #include "TinyIRSender.hpp"
 #include <LSM6DS3.h>
-#include <MadgwickAHRS.h>
 #include <Wire.h>
 #include <ArduinoBLE.h>  // Bluetooth library
 
@@ -14,10 +13,8 @@ BLEService customService("1101"); // Custom BLE service
 BLEStringCharacteristic rxCharacteristic("2101",  BLERead | BLENotify, 20);
 // BLEStringCharacteristic txCharacteristic("2A38", BLEWrite | BLENotify, 20);
 
-float ax, ay, az;                   // Accel
-float gx, gy, gz;                   // Gyro
-float roll, pitch, yaw;             // attitude
-float lastRoll = 0, lastPitch = 0, lastYaw = 0;
+#define THRESHOLD_ACCEL_Y 3.0   // Y축 가속도 기준 (단위: g)
+#define THRESHOLD_GYRO_X 150    // X축 자이로 기준 (단위: dps)
 
 bool is_paired = false;
 
@@ -96,61 +93,35 @@ void setup(void)
 #define THRESHOLDACCEL 0.8
 #define STABILITY_T 300
 #define SIGNAL_DELAY 100
-#define PTICH_THRESHOLD 100
-#define ROLL_THRESHOLD 218
-#define YAW_THRESHOLD 300
+#define THRESHOLD_ACCEL_Y 3.0   // Y축 가속도 기준 (단위: g)
+#define THRESHOLD_GYRO_X 150    // X축 자이로 기준 (단위: dps)
 
 uint8_t sAddress = 0x02;
 uint8_t sCommand = 0x10;
 uint8_t sRepeats = 1;
 
-bool is_rising = false;  // 상승 상태 플래그
-bool detection_enabled = false;
-unsigned long last_rising_time = 0;  // 마지막 상승 시간
-#define TIMEOUT 500  // 상승 후 하강 대기 시간 (ms)
+// bool is_rising = false;  // 상승 상태 플래그
+// bool detection_enabled = false;
+// unsigned long last_rising_time = 0;  // 마지막 상승 시간
+// #define TIMEOUT 500  // 상승 후 하강 대기 시간 (ms)
 
 bool detect_finger_tap() {
             
-  ax = myIMU.readFloatAccelX(); // Accel data
-  ay = myIMU.readFloatAccelY();
-  az = myIMU.readFloatAccelZ();
-  gx = myIMU.readFloatGyroX();  // Gyro data
-  gy = myIMU.readFloatGyroY();
-  gz = myIMU.readFloatGyroZ();
+  float accelY = myIMU.readFloatAccelY();  // Y축 가속도 (단위: g)
+  float gyroX = myIMU.readFloatGyroX();    // X축 자이로 (단위: dps)
 
-  // calculate the attitude with Madgwick filter
-  filter.updateIMU(gx, gy, gz, ax, ay, az);
-  float p_roll = filter.getRoll();
-  float p_ptich = filter.getPitch();
-  float p_yaw = filter.getYaw();
+  // 디버그 출력 (필요할 경우 주석 처리 가능)
+  Serial.print("Accel Y: ");
+  Serial.print(accelY, 2);
+  Serial.print(" g, Gyro X: ");
+  Serial.println(gyroX, 2);
 
-  Serial.print("Pitch D: ");
-  Serial.println(abs(p_ptich - lastPitch));
-  Serial.print("Roll D: ");
-  Serial.println(abs(p_roll - lastRoll));
-  Serial.print("Yaw D: ");
-  Serial.println(abs(p_yaw - lastYaw));
-
-  // Reset `is_rising` after TIMEOUT
-  if (is_rising && millis() - last_rising_time > TIMEOUT) {
-    is_rising = false;
+  // 가속도와 자이로 값이 임계값을 초과할 때 "탭"으로 간주
+  if (accelY > THRESHOLD_ACCEL_Y && abs(gyroX) > THRESHOLD_GYRO_X) {
+    return true;  // Tap 감지
   }
 
-  if((abs(p_ptich - lastPitch) > PTICH_THRESHOLD) && \
-     (abs(p_roll - lastRoll) < ROLL_THRESHOLD) && \
-     (abs(p_yaw - lastYaw) < YAW_THRESHOLD)) // -180 ~ 180deg
-  {
-    last_rising_time = millis();
-    is_rising = true;
-    lastPitch = p_ptich;
-    lastRoll = p_roll;
-    lastYaw = p_yaw;
-    return true;
-  }
-  
-  
-
-  return false;
+  return false;  // Tap 미감지
 
 }
 
@@ -208,12 +179,12 @@ void loop(void)
   gy = myIMU.readFloatGyroY();
   gz = myIMU.readFloatGyroZ();
 
-  // calculate the attitude with Madgwick filter
-  filter.updateIMU(gx, gy, gz, ax, ay, az);
+  // // calculate the attitude with Madgwick filter
+  // filter.updateIMU(gx, gy, gz, ax, ay, az);
 
-  lastRoll = filter.getRoll();
-  lastPitch = filter.getPitch();  // -180 ~ 180deg
-  lastYaw = filter.getYaw();
+  // lastRoll = filter.getRoll();
+  // lastPitch = filter.getPitch();  // -180 ~ 180deg
+  // lastYaw = filter.getYaw();
 
   }
 
