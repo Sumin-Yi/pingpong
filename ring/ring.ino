@@ -172,12 +172,12 @@ void loop(void)
   digitalWrite(LED_BUILTIN, LOW);
   sendFAST(D7, sCommand, sRepeats);
 
-  ax = myIMU.readFloatGyroX();
-  ay = myIMU.readFloatGyroY();
-  az = myIMU.readFloatGyroZ();
-  gx = myIMU.readFloatGyroX();  // Gyro data
-  gy = myIMU.readFloatGyroY();
-  gz = myIMU.readFloatGyroZ();
+  // ax = myIMU.readFloatGyroX();
+  // ay = myIMU.readFloatGyroY();
+  // az = myIMU.readFloatGyroZ();
+  // gx = myIMU.readFloatGyroX();  // Gyro data
+  // gy = myIMU.readFloatGyroY();
+  // gz = myIMU.readFloatGyroZ();
 
   // // calculate the attitude with Madgwick filter
   // filter.updateIMU(gx, gy, gz, ax, ay, az);
