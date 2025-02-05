@@ -7,7 +7,7 @@
 // Create an instance of class LSM6DS3
 LSM6DS3 myIMU(I2C_MODE, 0x6A);    // I2C device address 0x6A
 
-Madgwick filter;
+//Madgwick filter;
 
 BLEService customService("1101"); // Custom BLE service
 BLEStringCharacteristic rxCharacteristic("2101",  BLERead | BLENotify, 20);
@@ -49,7 +49,7 @@ void setup(void)
   myIMU.writeRegister(LSM6DS3_ACC_GYRO_CTRL7_G, 0x00);    // HPF 16mHz
   myIMU.writeRegister(LSM6DS3_ACC_GYRO_CTRL8_XL, 0x09);   // ODR/4
 
-  filter.begin(12.5);
+//  filter.begin(12.5);
 
   // Initialize BLE
   if (!BLE.begin()) {
