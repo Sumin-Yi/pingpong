@@ -4,8 +4,9 @@ sketch_path="$(pwd)/device/device.ino"
 
 # ports
 boards=(
-  "/dev/cu.usbmodem14101"
-  "/dev/cu.usbmodem14201"
+    "/dev/cu.usbserial-11110"
+    "/dev/cu.usbserial-11120"
+    "/dev/cu.usbserial-11130"
 )
 
 # upload execution
