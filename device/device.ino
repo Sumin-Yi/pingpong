@@ -28,8 +28,6 @@ void setup() {
 #define WAITING_TIMEOUT 1000
   Serial.setTimeout(WAITING_TIMEOUT);
 
-  matrix_off();
-
 }
 
 uint8_t sAddress = 0x02;
@@ -186,6 +184,7 @@ void matrix_spinner(bool state) {
   cond_aon(target, A5);
 }
 
+
 void matrix_off() {
   analogWrite(A0, 255);
   analogWrite(A1, 255);
@@ -238,84 +237,142 @@ enum RingState {
 };
 
 #define TIME_WINDOW 1000
-#define WAITING_TIME 300
+#define BREAKOFF 200 // tolerance: max amount of time spent since last detected signal.
 
 DeviceState currentState = STATE_STABLE;
 RingState currentRing = RING_STABLE;
-unsigned long lastDetectionTime = 0;
-unsigned long lastDetectedSentTime = 0;
-unsigned long prev_time = 0;
-unsigned long selc_time = 0;
-unsigned long det_time = 0;
-bool spinner_state = false;
+static long last_signal_time = 0;
+bool was_on = false;
 
-void toggle_spinner() {
-  spinner_state = !spinner_state;
-}
+DeviceState device_state = STATE_STABLE;
+
+// for qt debug options
+Detection last_detection_state;
+long last_detection = 0;
 
 void loop() {
   // Main code loop
-  if (is_on()) {
-    Detection detection = attemptDetect(); // IR 신호 감지 시도
-    unsigned long now = millis(); // 현재 시간 확인
+  // if (is_on()) {
+  //   Detection detection = attemptDetect();
+  //   long now = millis();
 
-    // Handle detection states
-    if (detection == DET_DETECTED && (now - lastDetectedSentTime > WAITING_TIME)) {
-      if (currentState == STATE_STABLE) {
-        lastDetectionTime = now; // 마지막 감지 시간 기록
-        Serial.write("DETECTED\n"); // 서버로 DETECTED 전송
-        lastDetectedSentTime = now; // 마지막 전송 시간 기록
-        Serial.print("Detect : ");
-        Serial.println(millis());
-      }
+  //   if (detection == DET_DETECTED) {
+  //     Serial.println("1");
+  //     last_detection = now;
+  //     last_detection_state = detection;
+  //   }
+
+  //   bool keep_state = now - last_detection <= BREAKOFF;
+  //   // Detection still_detected = keep_state ? last_detection_state : DET_NONE;
+
+  //   if (keep_state && (now - last_signal_time >= TIME_WINDOW)) {
+  //     last_signal_time = now;  // 신호 보낸 시각 업데이트
+
+  //     // 시리얼 신호 전송
+  //     Serial.println("DETECTED\n");
+  //   }
+
+
+  //   // 서버에서 오는 명령 처리
+  //   if (Serial.available() > 0) {
+  //     String command = Serial.readStringUntil('\n'); // 한 줄 읽기
+  //     command.trim(); // 공백 제거
+
+  //     if (command == "SELECTED") {
+  //       Serial.println("Command received: SELECTED");
+  //       currentState = STATE_DETECTED; // 상태를 DETECTED로 변경
+  //       last_signal_time = now; // 상태 변경 시간 기록
+  //     } else if (command == "CONFIRMED" && currentState == STATE_DETECTED) {
+  //       Serial.println("Command received: CONFIRMED");
+  //       currentState = STATE_CONFIRM; // 상태를 CONFIRM으로 변경
+  //     }
+  //   }
+
+  //   // Check TIME_WINDOW expiration for STATE_DETECTED
+  //   if (currentState == STATE_DETECTED && (now - last_signal_time >= TIME_WINDOW)) {
+  //     currentState = STATE_STABLE; // TIME_WINDOW 경과 시 STABLE로 상태 복원
+  //     currentRing = RING_STABLE;  // 링 상태도 초기화
+  //   }
+
+  // if (device_state != next_state) last_transition = now;
+  // device_state = next_state;
+
+  // #define DISPLAY_PWR() do { if (was_on) matrix_on(); else matrix_off(); } while(false);
+
+
+  // #ifdef ALTSIG
+  //   based_led(GREEN, true);
+  //   based_led(YELLOW, still_detected);
+  //   based_led(RED, device_state == DS_SIGNALING);
+
+  //   if (was_on) matrix_on(); else matrix_off();
+  // #else
+  //   // display
+  //   switch (device_state) {
+  //     case DS_STABLE: {
+  //       select_led(RED);
+  //       DISPLAY_PWR();
+  //     } break;
+
+  //     case DS_WAITING_ACK: {
+  //       // RED + YELLOW
+  //       digitalWrite(RED, LOW);
+  //       digitalWrite(YELLOW, LOW);
+  //       digitalWrite(GREEN, HIGH);
+
+  //       DISPLAY_PWR();
+  //     } break;
+
+  //     case DS_WAITING_TURN: {
+  //       select_led(YELLOW);
+  //       matrix_blinker(was_on);
+  //     } break;
+
+  //     case DS_SIGNALING: {
+  //       select_led(YELLOW);
+  //       matrix_spinner(was_on);
+  //     } break;
+
+  //     case DS_WAITING_END: {
+  //       select_led(GREEN);
+  //       DISPLAY_PWR();
+  //     } break;
+  //   }
+  // #endif
+
+  // } else {
+  //   // 디바이스가 꺼져 있을 때 모든 LED 끄기
+  //   digitalWrite(3, HIGH); // RED LED 끄기
+  //   digitalWrite(4, HIGH); // YELLOW LED 끄기
+  //   digitalWrite(5, HIGH); // GREEN LED 끄기
+  //   matrix_off();
+  // }
+  if (!is_on()) {
+    // detection logic + 
+    Detection detection = attemptDetect();
+    long now = millis();
+    if (detection == DET_DETECTED) {
+      last_detection = now;
+      last_detection_state = detection;
+    }
+    bool keep_state = now - last_detection <= BREAKOFF;
+    Detection still_detected = keep_state ? last_detection_state : DET_NONE;
+
+
+    // reset state
+    device_state = STATE_STABLE;
+
+    cycle_light();
+
+    // matrix lighting
+    if (still_detected == DET_DETECTED) {
+      matrix_on();
+    } else if (still_detected == DET_UNKNOWN) {
+      matrix_spinner(true);
+    } else {
+      matrix_off();
     }
 
-    // 서버에서 오는 명령 처리
-    if (Serial.available() > 0) {
-      String command = Serial.readStringUntil('\n'); // 한 줄 읽기
-      command.trim(); // 공백 제거
-
-      if (command == "SELECTED") {
-        Serial.println("Command received: SELECTED");
-        currentState = STATE_DETECTED; // 상태를 DETECTED로 변경
-        lastDetectionTime = now; // 상태 변경 시간 기록
-      } else if (command == "CONFIRMED" && currentState == STATE_DETECTED) {
-        Serial.println("Command received: CONFIRMED");
-        currentState = STATE_CONFIRM; // 상태를 CONFIRM으로 변경
-      }
-    }
-
-
-    // Check TIME_WINDOW expiration for STATE_DETECTED
-    if (currentState == STATE_DETECTED && (now - lastDetectionTime >= TIME_WINDOW)) {
-      currentState = STATE_STABLE; // TIME_WINDOW 경과 시 STABLE로 상태 복원
-      currentRing = RING_STABLE;  // 링 상태도 초기화
-    }
-
-    // LED 상태 처리
-    switch (currentState) {
-      case STATE_DETECTED:
-        select_led(YELLOW); // 감지 상태일 때 YELLOW LED
-        break;
-
-      case STATE_CONFIRM:
-        toggle_spinner();  // 이걸 어떤 이벤트에 연결하면 됨 (예: 버튼 입력)
-        matrix_spinner(spinner_state);  // 현재 상태에 따라 LED 회전
-        currentState = STATE_STABLE;
-        break;
-
-      case STATE_STABLE:
-        select_led(GREEN); // 안정 상태일 때 RED LED
-        break;
-
-      case STATE_UNKNOWN:
-        select_led(RED); // UNKNOWN 상태일 때 RED LED
-        break;
-    }
-  } else {
-    // 디바이스가 꺼져 있을 때 모든 LED 끄기
-    digitalWrite(3, HIGH); // RED LED 끄기
-    digitalWrite(4, HIGH); // YELLOW LED 끄기
-    digitalWrite(5, HIGH); // GREEN LED 끄기
+    return;
   }
 }

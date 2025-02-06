@@ -11,7 +11,8 @@ TX_CHARACTERISTIC_UUID = "2101"  # 서버에서 클라이언트로 전송 (FINGE
 
 # 시리얼 통신 설정
 # SERIAL_PORTS = ["COM8", "COM9"]
-SERIAL_PORTS = ["/dev/cu.usbserial-11110", "/dev/cu.usbserial-11120", "/dev/cu.usbserial-11130"]
+SERIAL_PORTS = ["/dev/cu.usbserial-11110"]
+# SERIAL_PORTS = ["/dev/cu.usbserial-11110", "/dev/cu.usbserial-11120", "/dev/cu.usbserial-11130"]
 BAUD_RATE = 115200
 
 # 전역 변수
@@ -75,7 +76,7 @@ class BLEClient:
             message = data.decode("utf-8")
             print(f"Received notification: {message}")
             if message == "FINGER_TAP_DETECTED":
-                if last_selected_device:
+                if last_selected_device and last_selected_time - time.time() <= selection_interval :
                     serial_manager.send_to_device(last_selected_device, "CONFIRMED")
                     print(f"CONFIRMED sent to device on {last_selected_device.port}")
                 else:
