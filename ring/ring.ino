@@ -280,7 +280,6 @@ void setup(void)
 
 #define THRESHOLD 40.
 #define STABILITY_T 300
-#define SIGNAL_DELAY 100
 #define THRESHOLD_GYRO_Y_LOWER 300    // X축 자이로 기준 (단위: dps)
 
 uint8_t sAddress = 0x02;
@@ -311,47 +310,17 @@ bool detect_finger_tap() {
 long now = millis();
 long last_time = now;
 
-unsigned long lastTapTime = 0;
-const unsigned long debounceDelay = 600;
-
 void loop(void)
 {
   BLEDevice central = BLE.central();
+
+  if (central) {  
+    long last_time_since_signal = now;
+    digitalWrite(LED_BUILTIN, HIGH);
   
-  long last_time_since_signal = now;
-  digitalWrite(LED_BUILTIN, HIGH);
-
-  if (detect_finger_tap()) {
-  unsigned long currentTime = millis();  // 현재 시각
-
-    if (currentTime - lastTapTime > debounceDelay) {
-      lastTapTime = currentTime;  // 현재 시각으로 업데이트
-  
-      // 신호 전송
-      rxCharacteristic.writeValue("FINGER_TAP_DETECTED");
-      Serial.println("Sent signal: FINGER_TAP_DETECTED");
-    }
-  }
-
-  do {
-
-    float aX, aY, aZ;
-    now = millis();
-    aX = myIMU.readFloatGyroX();
-    aY = myIMU.readFloatGyroY();
-    aZ = myIMU.readFloatGyroZ();
-    
-
-    // sum up the absolutes
-    float aSum = fabs(aX) + fabs(aY) + fabs(aZ);
-
-    if (aSum > THRESHOLD) {
-      last_time = now;
-    }
-
     if (detect_finger_tap()) {
-      unsigned long currentTime = millis();  // 현재 시각
-    
+    unsigned long currentTime = millis();  // 현재 시각
+  
       if (currentTime - lastTapTime > debounceDelay) {
         lastTapTime = currentTime;  // 현재 시각으로 업데이트
     
@@ -361,10 +330,39 @@ void loop(void)
       }
     }
   
-  //    Serial.println(aSum);
-
-  } while (now - last_time_since_signal <= SIGNAL_DELAY);
-
-  digitalWrite(LED_BUILTIN, LOW);
-  sendFAST(D7, sCommand, sRepeats); 
+    do {
+  
+      float aX, aY, aZ;
+      now = millis();
+      aX = myIMU.readFloatGyroX();
+      aY = myIMU.readFloatGyroY();
+      aZ = myIMU.readFloatGyroZ();
+      
+  
+      // sum up the absolutes
+      float aSum = fabs(aX) + fabs(aY) + fabs(aZ);
+  
+      if (aSum > THRESHOLD) {
+        last_time = now;
+      }
+  
+      if (detect_finger_tap()) {
+        unsigned long currentTime = millis();  // 현재 시각
+      
+        if (currentTime - lastTapTime > debounceDelay) {
+          lastTapTime = currentTime;  // 현재 시각으로 업데이트
+      
+          // 신호 전송
+          rxCharacteristic.writeValue("FINGER_TAP_DETECTED");
+          Serial.println("Sent signal: FINGER_TAP_DETECTED");
+        }
+      }
+    
+    //    Serial.println(aSum);
+  
+    } while (now - last_time_since_signal <= SIGNAL_DELAY);
+  
+    digitalWrite(LED_BUILTIN, LOW);
+    sendFAST(D7, sCommand, sRepeats); 
+  }
 }
