@@ -1,12 +1,13 @@
-#include <IRremote.hpp>
+const int IR_RECEIVE_PIN = 2;
+unsigned long detectionStartTime = 0;
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
   pinMode(A0, OUTPUT);
 
-  // IR receiver
-  IrReceiver.begin(2, DISABLE_LED_FEEDBACK);
+  // IR detector
+  pinMode(IR_RECEIVE_PIN, INPUT);
 
   // LEDs
   pinMode(3, OUTPUT); // GREEN LED
@@ -25,7 +26,7 @@ void setup() {
   pinMode(12, INPUT_PULLUP);
 
   // serial timeout stuff (max waiting time)
-#define WAITING_TIMEOUT 1000
+  #define WAITING_TIMEOUT 1000
   Serial.setTimeout(WAITING_TIMEOUT);
 
 }
@@ -33,66 +34,6 @@ void setup() {
 uint8_t sAddress = 0x02;
 uint8_t sCommand = 0x10;
 uint8_t sRepeats = 1;
-
-enum Detection {
-  DET_NONE,
-  DET_UNKNOWN,
-  DET_DETECTED,
-};
-
-Detection attemptDetect();
-Detection attemptDetect() {
-
-  /*
-  * Check if received data is available and if yes, try to decode it.
-  * Decoded result is in the IrReceiver.decodedIRData structure.
-  *
-  * E.g. command is in IrReceiver.decodedIRData.command
-  * address is in command is in IrReceiver.decodedIRData.address
-  * and up to 32 bit raw data in IrReceiver.decodedIRData.decodedRawData
-  */
-  if (IrReceiver.decode()) {
-
-      /*
-      * Print a summary of received data
-      
-      */
-      // Serial.print("Protocol: ");
-      // Serial.println(IrReceiver.decodedIRData.protocol);
-      // Serial.print("Command: ");
-      // Serial.println(IrReceiver.decodedIRData.command, HEX);
-      // Serial.print("Address: ");
-      // Serial.println(IrReceiver.decodedIRData.address, HEX);
-
-      if (IrReceiver.decodedIRData.protocol == UNKNOWN) {
-          // Serial.println(F("Received noise or an unknown (or not yet enabled) protocol"));
-          // We have an unknown protocol here, print extended info
-          // IrReceiver.printIRResultRawFormatted(&Serial, true);
-          IrReceiver.resume(); // Do it here, to preserve raw data for printing with printIRResultRawFormatted()
-          return DET_UNKNOWN;
-      } else {
-          IrReceiver.resume(); // Early enable receiving of the next IR frame
-          // IrReceiver.printIRResultShort(&Serial);
-          // IrReceiver.printIRSendUsage(&Serial);
-      }
-      // Serial.println();
-
-      /*
-      * Finally, check the received data and perform actions according to the received command
-      */
-      if (IrReceiver.decodedIRData.command == 0x10) {
-        // digitalWrite(6, HIGH);
-        Serial.println("receive");
-        return DET_DETECTED;
-      } else {
-        return DET_UNKNOWN;
-      }
-
-  }
-
-  return DET_NONE;
-}
-
 
 #define RED 3
 #define YELLOW 4
@@ -243,136 +184,83 @@ DeviceState currentState = STATE_STABLE;
 RingState currentRing = RING_STABLE;
 static long last_signal_time = 0;
 bool was_on = false;
+bool signalDetected = false;
 
 DeviceState device_state = STATE_STABLE;
 
-// for qt debug options
-Detection last_detection_state;
 long last_detection = 0;
 
 void loop() {
   // Main code loop
-  // if (is_on()) {
-  //   Detection detection = attemptDetect();
-  //   long now = millis();
+  if (is_on()) {
+    if (currentState == STATE_STABLE) {
+      int irState = digitalRead(IR_RECEIVE_PIN);
 
-  //   if (detection == DET_DETECTED) {
-  //     Serial.println("1");
-  //     last_detection = now;
-  //     last_detection_state = detection;
-  //   }
+      if (irState == LOW) {
+        if (!signalDetected) {
+          detectionStartTime = millis();
+          signalDetected = true;
+        }
 
-  //   bool keep_state = now - last_detection <= BREAKOFF;
-  //   // Detection still_detected = keep_state ? last_detection_state : DET_NONE;
+        if (millis() - detectionStartTime >= BREAKOFF) {
+          signalDetected = false;
+          Serial.println("DETECTED\n");
+        }
+      } else {
+        signalDetected = false;
+      }
 
-  //   if (keep_state && (now - last_signal_time >= TIME_WINDOW)) {
-  //     last_signal_time = now;  // 신호 보낸 시각 업데이트
+      if (Serial.available() > 0) {
+        String command = Serial.readStringUntil('\n');
+        command.trim();
 
-  //     // 시리얼 신호 전송
-  //     Serial.println("DETECTED\n");
-  //   }
-
-
-  //   // 서버에서 오는 명령 처리
-  //   if (Serial.available() > 0) {
-  //     String command = Serial.readStringUntil('\n'); // 한 줄 읽기
-  //     command.trim(); // 공백 제거
-
-  //     if (command == "SELECTED") {
-  //       Serial.println("Command received: SELECTED");
-  //       currentState = STATE_DETECTED; // 상태를 DETECTED로 변경
-  //       last_signal_time = now; // 상태 변경 시간 기록
-  //     } else if (command == "CONFIRMED" && currentState == STATE_DETECTED) {
-  //       Serial.println("Command received: CONFIRMED");
-  //       currentState = STATE_CONFIRM; // 상태를 CONFIRM으로 변경
-  //     }
-  //   }
-
-  //   // Check TIME_WINDOW expiration for STATE_DETECTED
-  //   if (currentState == STATE_DETECTED && (now - last_signal_time >= TIME_WINDOW)) {
-  //     currentState = STATE_STABLE; // TIME_WINDOW 경과 시 STABLE로 상태 복원
-  //     currentRing = RING_STABLE;  // 링 상태도 초기화
-  //   }
-
-  // if (device_state != next_state) last_transition = now;
-  // device_state = next_state;
-
-  // #define DISPLAY_PWR() do { if (was_on) matrix_on(); else matrix_off(); } while(false);
-
-
-  // #ifdef ALTSIG
-  //   based_led(GREEN, true);
-  //   based_led(YELLOW, still_detected);
-  //   based_led(RED, device_state == DS_SIGNALING);
-
-  //   if (was_on) matrix_on(); else matrix_off();
-  // #else
-  //   // display
-  //   switch (device_state) {
-  //     case DS_STABLE: {
-  //       select_led(RED);
-  //       DISPLAY_PWR();
-  //     } break;
-
-  //     case DS_WAITING_ACK: {
-  //       // RED + YELLOW
-  //       digitalWrite(RED, LOW);
-  //       digitalWrite(YELLOW, LOW);
-  //       digitalWrite(GREEN, HIGH);
-
-  //       DISPLAY_PWR();
-  //     } break;
-
-  //     case DS_WAITING_TURN: {
-  //       select_led(YELLOW);
-  //       matrix_blinker(was_on);
-  //     } break;
-
-  //     case DS_SIGNALING: {
-  //       select_led(YELLOW);
-  //       matrix_spinner(was_on);
-  //     } break;
-
-  //     case DS_WAITING_END: {
-  //       select_led(GREEN);
-  //       DISPLAY_PWR();
-  //     } break;
-  //   }
-  // #endif
-
-  // } else {
-  //   // 디바이스가 꺼져 있을 때 모든 LED 끄기
-  //   digitalWrite(3, HIGH); // RED LED 끄기
-  //   digitalWrite(4, HIGH); // YELLOW LED 끄기
-  //   digitalWrite(5, HIGH); // GREEN LED 끄기
-  //   matrix_off();
-  // }
-  if (!is_on()) {
-    // detection logic + 
-    Detection detection = attemptDetect();
-    long now = millis();
-    if (detection == DET_DETECTED) {
-      last_detection = now;
-      last_detection_state = detection;
+        if (command = "SELECTED") {
+          Serial.println("Command received: SELECTED");
+          currentState = STATE_DETECTED;
+          last_signal_time = millis();
+        }
+      }
     }
-    bool keep_state = now - last_detection <= BREAKOFF;
-    Detection still_detected = keep_state ? last_detection_state : DET_NONE;
-
-
-    // reset state
-    device_state = STATE_STABLE;
-
-    cycle_light();
-
-    // matrix lighting
-    if (still_detected == DET_DETECTED) {
-      matrix_on();
-    } else if (still_detected == DET_UNKNOWN) {
-      matrix_spinner(true);
-    } else {
-      matrix_off();
+    else if (currentState == STATE_DETECTED) {
+      if (millis() - last_signal_time >= TIME_WINDOW) {
+        currentState = STATE_STABLE;
+      }
+      else {
+        if (Serial.available() > 0) {
+          String command = Serial.readStringUntil('\n');
+          command.trim();
+  
+          if (command = "CONFIRMED") {
+            Serial.println("Command received: CONFIRMED");
+            currentState = STATE_STABLE;
+            if (was_on) {
+              matrix_off();
+              was_on = !was_on;
+            }
+            else{
+              matrix_on();
+              was_on = !was_on;
+            }
+          }
+        } 
+      }
     }
 
-    return;
-  }
+    switch (currentState) {
+      case STATE_STABLE:
+        select_led(RED);
+        break;
+
+      case STATE_DETECTED :
+        select_led(YELLOW);
+        break;
+    }
+
+  } else {
+     // 디바이스가 꺼져 있을 때 모든 LED 끄기
+     digitalWrite(3, HIGH); // RED LED 끄기
+     digitalWrite(4, HIGH); // YELLOW LED 끄기
+     digitalWrite(5, HIGH); // GREEN LED 끄기
+     matrix_off();
+   }
 }
