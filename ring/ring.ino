@@ -1,4 +1,4 @@
- #include <LSM6DS3.h>
+#include <LSM6DS3.h>
 #include <Wire.h>
 #include <ArduinoBLE.h>  // Bluetooth library
 
@@ -86,30 +86,33 @@ bool detect_finger_tap() {
 
 unsigned long lastTapTime = 0;  // 마지막 탭 발생 시간
 const unsigned long debounceDelay = 600;
+unsigned long lastToneTime = 0;
+const unsigned long toneInterval = 100;  // Tone 주기
 
-unsigned long roop_time = 0;
-void loop(void)
-{ 
-  digitalWrite(LED_BUILTIN, HIGH);
-
+void loop(void) {
   BLEDevice central = BLE.central();
-
 
   if (central) {
     if (detect_finger_tap()) {
-      unsigned long currentTime = millis();  // 현재 시각
-  
+      unsigned long currentTime = millis();
+
       if (currentTime - lastTapTime > debounceDelay) {
-        lastTapTime = currentTime;  // 현재 시각으로 업데이트
-  
-        // 신호 전송
+        lastTapTime = currentTime;
+
         rxCharacteristic.writeValue("FINGER_TAP_DETECTED");
         Serial.println("Sent signal: FINGER_TAP_DETECTED");
       }
     }
-    tone(IR_SEND_PIN, 38000);
+
+    if (millis() - lastToneTime > toneInterval) {
+      tone(IR_SEND_PIN, 38000);
+      lastToneTime = millis();
+    }
+    
     digitalWrite(LED_BUILTIN, LOW);
-  
+  } else {
+    digitalWrite(LED_BUILTIN, HIGH);
   }
- 
+
+  BLE.poll(); 
 }
